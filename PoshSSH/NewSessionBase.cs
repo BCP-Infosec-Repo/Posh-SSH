@@ -203,25 +203,12 @@ namespace SSH
             get { return _errorOnUntrusted; }
             set { _errorOnUntrusted = value; }
         }
-        // Variable to hold the host/fingerprint information
-        private Dictionary<string, string> _sshHostKeys;
+        
 
         protected override void BeginProcessing()
         {
-            // no need to validate keys if the force parameter is selected.
-            if ( !_force)
-            {
-                // Collect host/fingerprint information from the registry.
-                base.BeginProcessing();
-                var keymng = new TrustedKeyMng();
-                _sshHostKeys = keymng.GetKeys();
-                if (_sshHostKeys == null)
-                {
-                    
-                    _sshHostKeys = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
-                    Console.WriteLine(_sshHostKeys);
-                }
-            }
+                
+            base.BeginProcessing();
         }
 
         protected override void ProcessRecord()
@@ -295,16 +282,14 @@ namespace SSH
                 // Handle host key
                 if (_force)
                 {
-                    WriteWarning("Host key is not being verified since Force switch is used.");
-                }
-                else
-                {
-                    var computer1 = computer;
-                    client.HostKeyReceived += delegate (object sender, HostKeyEventArgs e)
+                    WriteWarning("Host key for " + computer + " is not being verified since Force switch is used.");
+                } else {
+                    client.HostKeyReceived += delegate (object sender, HostKeyEventArgs HKevent)
                     {
-
+                        
+                        // Build the remote host's fingerprint
                         var sb = new StringBuilder();
-                        foreach (var b in e.FingerPrint)
+                        foreach (var b in HKevent.FingerPrint)
                         {
                             sb.AppendFormat("{0:x}:", b);
                         }
@@ -312,46 +297,35 @@ namespace SSH
 
                         if (MyInvocation.BoundParameters.ContainsKey("Verbose"))
                         {
-                            Host.UI.WriteVerboseLine("Fingerprint for " + computer1 + ": " + fingerPrint);
+                            Host.UI.WriteVerboseLine("Fingerprint for " + computer + ": " + fingerPrint);
                         }
 
-                        if (_sshHostKeys.ContainsKey(computer1))
+                        TrustedKeyMng.HostAcceptOptions policy = TrustedKeyMng.HostAcceptOptions.None;
+                        if (_acceptkey)
                         {
-                            e.CanTrust = _sshHostKeys[computer1] == fingerPrint;
-                            if (e.CanTrust && MyInvocation.BoundParameters.ContainsKey("Verbose"))
-                                Host.UI.WriteVerboseLine("Fingerprint matched trusted fingerprint for host " + computer1);
+                            policy = TrustedKeyMng.HostAcceptOptions.AutoAccept;
                         }
-                        else
+                        else if (_errorOnUntrusted)
                         {
-                            if (_errorOnUntrusted)
-                            {
-                                e.CanTrust = false;
-                            }
-                            else
-                            {
-                                if (!_acceptkey)
-                                {
-                                    var choices = new Collection<ChoiceDescription>
-                                    {
-                                        new ChoiceDescription("Y"),
-                                        new ChoiceDescription("N")
-                                    };
-                                    e.CanTrust = 0 == Host.UI.PromptForChoice("Server SSH Fingerprint", "Do you want to trust the fingerprint " + fingerPrint, choices, 1);
-                                }
-                                else // User specified he would accept the key so we can just add it to our list.
-                                {
-                                    e.CanTrust = true;
-                                }
-                                if (e.CanTrust)
-                                {
-                                    var keymng = new TrustedKeyMng();
-                                    keymng.SetKey(computer1, fingerPrint);
-                                }
-                                    
-                            }
+                            policy = TrustedKeyMng.HostAcceptOptions.ErrorOnUntrusted;
+                        }
+
+                        try 
+                        {
+                            HKevent.CanTrust = TrustedKeyMng.HostTrusted(computer, fingerPrint, policy, new TrustedKeyMng.PSHostUserInterface( base.CommandRuntime));
+                        }
+                        catch (KeyNotFoundException e)
+                        {
+                            // Not sure of this yet, it may be yanked.
+                        }
+                        catch (OperationCanceledException e)
+                        {
+                            // Not sure of this yet, it may be yanked.
                         }
                     };
                 }
+
+
                 try
                 {
                     // Set the connection timeout
