@@ -1,5 +1,27 @@
 # ChangeLog
 
+## Version 2.3
+
+* Change ShellStream name to dumb to prevent problems in Linux systems.
+* Fixed assembly conflict in Windows 2019 that now uses an older version of the base library.
+* Fixed filename Error with SCP
+* Key Exchange support for:
+  * curve25519-sha256
+  * curve25519-sha256@libssh.org
+  * ecdh-sha2-nistp256
+  * ecdh-sha2-nistp384
+  * ecdh-sha2-nistp521
+* ED25519 in OpenSSH key format
+* New host key algorithms supported:
+  * ssh-ed25519
+  * ecdsa-sha2-nistp256
+  * ecdsa-sha2-nistp384
+  * ecdsa-sha2-nistp521
+
+## Version 2.2
+
+* Fixed issue in  Get-SFTPItem
+
 ## Version 2.1
 
 * Fixed issue where help was not loading.

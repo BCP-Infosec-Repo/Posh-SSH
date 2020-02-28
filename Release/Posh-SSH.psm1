@@ -595,7 +595,7 @@ function New-SSHShellStream
         [Parameter(Mandatory=$false,
                    ValueFromPipelineByPropertyName=$true)]
         [string]
-        $TerminalName = "PoshSSHTerm",
+        $TerminalName = "dumb",
 
         # The columns
         [Parameter(Mandatory=$false,
